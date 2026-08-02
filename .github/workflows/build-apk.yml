@@ -2,6 +2,11 @@ name: Build Android APK
 
 on:
   workflow_dispatch: {}
+  push:
+    branches:
+      - claude/project-overview-analysis-3mnvk2
+    paths:
+      - '.github/workflows/build-apk.yml'
 
 jobs:
   build:
