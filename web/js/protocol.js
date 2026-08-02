@@ -98,6 +98,29 @@ export function buildSetEmgRawConfigCmd(sampRate, channelMask, dataLen, resoluti
   ];
 }
 
+export function buildGetFeatureMapCmd() {
+  return [CommandType.GET_FEATURE_MAP];
+}
+
+export function buildGetEmgRawCapCmd() {
+  return [CommandType.GET_EMG_RAWDATA_CAP];
+}
+
+// respData: the 4-byte payload of a GET_FEATURE_MAP (cmd=1) response, per the decompiled SDK
+// (little-endian u32, same bit layout as DataNotifFlag). Returns which flags this specific
+// device firmware declares support for — a device can ACK a SET_DATA_NOTIF_SWITCH write for a
+// bit it doesn't actually implement, so this is the one call that tells the truth up front.
+export function parseFeatureMap(respData) {
+  if (!respData || respData.length < 4) return null;
+  const map = (respData[0] | (respData[1] << 8) | (respData[2] << 16) | (respData[3] << 24)) >>> 0;
+  const names = [];
+  for (const [name, bit] of Object.entries(DataNotifFlag)) {
+    if (name === 'OFF' || name === 'ALL') continue;
+    if (map & bit) names.push(name);
+  }
+  return { map, names };
+}
+
 export function popcount8(mask) {
   let n = 0;
   for (let i = 0; i < 8; i++) if (mask & (1 << i)) n++;

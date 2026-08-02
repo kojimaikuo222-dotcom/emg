@@ -92,12 +92,14 @@ async function scanDevice() {
   setStatus('正在选择设备...', true);
   try {
     await ble.connect();
-    setStatus('已连接，正在启用 EMG 数据…', true);
+    setStatus('已连接，正在查询设备能力…', true);
     ble.onDisconnect(() => {
       if (isRecording) stopRec();
       updateConnUI();
       setStatus('设备已断开', false);
     });
+    await ble.queryDiagnostics();
+    setStatus('已连接，正在启用 EMG 数据…', true);
     await ble.enableEmg({ sampleRate: 500, channelMask: 0xFF, packetLen: 128, resolution: 8 });
     setStatus('已连接，EMG 已启用，可开始录制', false);
     updateConnUI();
