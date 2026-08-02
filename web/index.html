@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d0d0d">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>EMG 采集</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div class="app-shell">
+
+<header>
+  <div class="logo">EMG<span>/</span><span id="header-suffix">采集</span></div>
+  <div class="pill"><div class="dot" id="dot"></div><span id="conn-txt">未连接</span></div>
+  <div class="rec-pill" id="rec-pill">● REC</div>
+  <div class="cnt"><span id="cnt-label">采样</span> <b id="cnt">0</b></div>
+  <select class="lang-select" id="lang-select">
+    <option value="zh">中</option>
+    <option value="ja">日</option>
+    <option value="en">EN</option>
+  </select>
+</header>
+
+<!-- CONNECT -->
+<div class="page active" id="tab-connect">
+<div class="connect-wrap">
+
+  <div class="ble-hint">
+    <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-8l4 4-4 4"/></svg>
+    <p><b id="notice-title">使用须知</b><br>
+    <span id="notice-body">Android App 内使用原生蓝牙；浏览器内需 Android Chrome（56+）且已开启手机蓝牙。<br>
+    gForcePro+ 开机后绿灯每2秒闪一次即可扫描连接。</span></p>
+  </div>
+
+  <div class="conn-info" id="conn-info">
+    <div class="conn-info-name" id="conn-name">—</div>
+    <div class="conn-info-addr" id="conn-addr">—</div>
+  </div>
+
+  <div class="signal-quality" id="signal-quality" style="display:none">
+    <div class="section-title" id="signal-quality-title">信号质量</div>
+    <div class="sig-dots" id="sig-dots"></div>
+    <div class="sig-summary" id="sig-summary">—</div>
+  </div>
+
+  <div>
+    <div class="section-title" id="device-label">设备</div>
+    <div class="scan-status" id="scan-status">点击下方按钮连接</div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btn-scan" onclick="scanDevice()" style="flex:1">扫描 gForce 设备</button>
+    <button class="btn btn-danger" id="btn-disc" onclick="doDisconnect()" style="display:none">断开</button>
+  </div>
+
+  <div class="log-card">
+    <div class="section-title"><span id="debug-log-title">调试日志</span> <small id="debug-log-hint">（连接问题时展开看）</small></div>
+    <div id="dbg-log">等待操作…</div>
+  </div>
+
+</div>
+</div>
+
+<!-- RECORD -->
+<div class="page" id="tab-record">
+<div class="record-wrap">
+
+  <div class="label-section">
+    <div class="section-title" id="section-subject">受试者编号（可选）</div>
+    <input class="note-input" id="subject-id" type="text" placeholder="如：S001、张三…">
+  </div>
+
+  <div class="label-section">
+    <div class="section-title step-title"><span class="step-num" id="step-num-scene">1</span><span id="section-scene">场景</span></div>
+    <div class="chip-wrap" id="scene-chips"></div>
+  </div>
+
+  <div class="label-section">
+    <div class="section-title step-title"><span class="step-num" id="step-num-task">2</span><span id="section-task">工序</span></div>
+    <div class="chip-wrap" id="task-chips"></div>
+  </div>
+
+  <div class="label-section">
+    <div class="section-title step-title"><span class="step-num" id="step-num-tool">3</span><span id="section-tool">工具</span></div>
+    <div class="chip-wrap" id="tool-chips"></div>
+  </div>
+
+  <div class="label-section">
+    <div class="section-title" id="section-note">备注（可选）</div>
+    <input class="note-input" id="note" type="text" placeholder="如：左手、疲劳状态…">
+  </div>
+
+  <div class="label-section">
+    <div class="section-title" id="section-custom-fields">自定义字段</div>
+    <div id="custom-fields-list"></div>
+    <button class="btn btn-outline" id="btn-add-field" style="margin-top:8px;padding:8px 14px;font-size:12.5px" onclick="addCustomFieldRow()">+ 添加字段</button>
+  </div>
+
+</div>
+<div class="rec-bar">
+  <button class="btn btn-primary btn-block" id="btn-rec" onclick="toggleRec()">▶ 开始录制</button>
+  <div class="rec-status" id="rec-status">请先选择场景、工序和工具</div>
+</div>
+</div>
+
+<!-- WAVE -->
+<div class="page" id="tab-wave">
+<div class="wave-wrap">
+  <canvas id="wave-canvas"></canvas>
+  <div class="gesture-box">
+    <div class="gesture-label" id="gesture-label">识别手势</div>
+    <div class="gesture-val" id="gest-val">—</div>
+  </div>
+  <div class="ch-grid" id="ch-grid"></div>
+  <div class="adv-row">
+    <span id="interleave-label">采样交织方式</span>
+    <select id="interleave-mode">
+      <option value="sample" selected>按采样点交织（默认）</option>
+      <option value="channel">按通道分块</option>
+    </select>
+  </div>
+</div>
+</div>
+
+<!-- FILES -->
+<div class="page" id="tab-files">
+<div class="files-wrap">
+  <div class="stats-row" id="stats-row" style="display:none">
+    <div class="stat-tile"><div class="stat-val" id="stat-sessions">0</div><div class="stat-label" id="stat-sessions-label">总记录</div></div>
+    <div class="stat-tile"><div class="stat-val" id="stat-subjects">0</div><div class="stat-label" id="stat-subjects-label">受试者</div></div>
+    <div class="stat-tile"><div class="stat-val" id="stat-duration">0</div><div class="stat-label" id="stat-duration-label">总时长</div></div>
+    <div class="stat-tile"><div class="stat-val" id="stat-size">0</div><div class="stat-label" id="stat-size-label">总大小</div></div>
+  </div>
+  <div class="files-head">
+    <div class="section-title" id="files-title">已保存 CSV</div>
+    <button class="btn btn-outline" id="btn-refresh" style="padding:7px 14px;font-size:12px" onclick="renderFiles()">刷新</button>
+  </div>
+  <div id="files-list"><div class="empty">暂无文件</div></div>
+</div>
+</div>
+
+<nav class="tabs">
+  <div class="tab active" onclick="showTab('connect',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg>
+    <span class="tab-label" id="nav-connect">连接</span>
+  </div>
+  <div class="tab" onclick="showTab('record',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L11 3.83A2 2 0 0 0 9.6 3.17L4 3a1 1 0 0 0-1 1l.17 5.6a2 2 0 0 0 .66 1.4l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/></svg>
+    <span class="tab-label" id="nav-record">标注录制</span>
+  </div>
+  <div class="tab" onclick="showTab('wave',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <span class="tab-label" id="nav-wave">波形</span>
+  </div>
+  <div class="tab" onclick="showTab('files',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <span class="tab-label" id="nav-files">文件</span>
+  </div>
+</nav>
+
+</div>
+<script src="./dist/bundle.js"></script>
+</body>
+</html>
