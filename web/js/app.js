@@ -1,6 +1,7 @@
 import { createBleController, isWebBluetoothSupported, isNativePlatform } from './ble.js';
 import { GESTURE_LABELS } from './protocol.js';
 import { saveRecording, listRecordings, deleteRecording } from './db.js';
+import { exportCSVNative } from './export-native.js';
 
 const SCENES = {
   '民宿清扫': {
@@ -240,7 +241,10 @@ async function persistCSV() {
   } catch (e) {
     console.error('IndexedDB save failed', e);
   }
-  downloadCSV(fname, csvText);
+  // Auto-download-on-stop only makes sense in a real browser (silent, no dialog). Inside the
+  // Android app shell, exporting means popping the native share sheet, which would interrupt
+  // a rapid back-to-back recording workflow — leave that to the explicit "下载" button instead.
+  if (!isNativePlatform()) downloadCSV(fname, csvText);
   renderFiles();
 }
 
@@ -250,6 +254,19 @@ function downloadCSV(fname, csvText) {
   const a = document.createElement('a');
   a.href = url; a.download = fname; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+async function exportCSV(fname, csvText) {
+  if (isNativePlatform()) {
+    try {
+      await exportCSVNative(fname, csvText);
+    } catch (e) {
+      console.error('native export failed', e);
+      alert('导出失败: ' + e.message);
+    }
+  } else {
+    downloadCSV(fname, csvText);
+  }
 }
 
 window.renderFiles = renderFiles;
@@ -270,7 +287,7 @@ async function renderFiles() {
     btn.addEventListener('click', async () => {
       const rec = files.find((f) => f.id === btn.dataset.id);
       if (!rec) return;
-      if (btn.dataset.action === 'dl') downloadCSV(rec.filename, rec.csvText);
+      if (btn.dataset.action === 'dl') exportCSV(rec.filename, rec.csvText);
       else { await deleteRecording(rec.id); renderFiles(); }
     });
   });
