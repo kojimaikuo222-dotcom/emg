@@ -8,6 +8,9 @@ on:
     paths:
       - '.github/workflows/build-apk.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -44,3 +47,17 @@ jobs:
           name: emg-collector-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      # Also push the built APK to its own branch. The Actions artifact API
+      # serves files from Azure Blob Storage, which isn't reachable from
+      # wherever this repo's CI-triggering sandbox runs; a plain git branch is.
+      - name: Publish APK to apk-output branch
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/emg-collector-debug.apk
+          git checkout --orphan apk-output
+          git rm -rf . > /dev/null
+          cp /tmp/emg-collector-debug.apk ./emg-collector-debug.apk
+          git add -f emg-collector-debug.apk
+          git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" \
+            commit -m "Built debug APK from ${GITHUB_SHA}"
+          git push origin HEAD:apk-output --force
