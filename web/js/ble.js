@@ -29,7 +29,12 @@ export function createBleController({ log }) {
     }
   });
 
+  let loggedFirstEmgPacket = false;
   transport.onData((bytes) => {
+    if (!loggedFirstEmgPacket && bytes.length > 0 && bytes[0] === proto.NotifDataType.EMG_RAW) {
+      loggedFirstEmgPacket = true;
+      log('首个 EMG_RAW 包 (' + bytes.length + '字节): ' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join(' '));
+    }
     const parsed = proto.parseDataNotification(bytes, emgConfig);
     if (!parsed) return;
     if (parsed.type === 'emg') {
@@ -40,6 +45,10 @@ export function createBleController({ log }) {
       log('未知数据包 type=0x' + parsed.typeByte.toString(16) + ' len=' + parsed.raw.length);
     }
   });
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   function sendCommand(bytes, timeoutMs = 4000) {
     return new Promise((resolve, reject) => {
@@ -79,9 +88,9 @@ export function createBleController({ log }) {
     isConnected() { return connected; },
     getDeviceName() { return deviceName; },
 
-    // Best-effort capability probe. A device can ACK a SET_DATA_NOTIF_SWITCH write for a bit
-    // it doesn't actually implement (silently no-op), so this is run before enableEmg() to
-    // catch a "supports EMG_RAW" mismatch up front instead of guessing why no data arrives.
+    // Best-effort capability probe, using the correct FeatureMap bit layout (GET_FEATURE_MAP's
+    // response is not the same bitmask as SET_DATA_NOTIF_SWITCH's flags, despite sharing a
+    // command byte range — an earlier version of this file conflated the two).
     async queryDiagnostics() {
       try {
         const resp = await sendCommand(proto.buildGetFeatureMapCmd());
@@ -90,8 +99,8 @@ export function createBleController({ log }) {
           log(fm
             ? '设备支持的数据类型: ' + (fm.names.join(', ') || '(空)') + '  [0x' + fm.map.toString(16) + ']'
             : 'GET_FEATURE_MAP 响应格式异常: ' + Array.from(resp.data).join(','));
-          if (fm && !(fm.map & proto.DataNotifFlag.EMG_RAW)) {
-            log('⚠️ 该设备固件声明不支持 EMG_RAW，这就是收不到数据的原因，不是连接问题');
+          if (fm && !(fm.map & proto.FeatureMap.EMG)) {
+            log('⚠️ 该设备固件声明不支持 EMG，这就是收不到数据的原因，不是连接问题');
           }
         } else {
           log('GET_FEATURE_MAP 失败, resp=' + resp.respCode);
@@ -108,15 +117,35 @@ export function createBleController({ log }) {
     },
 
     async enableEmg({ sampleRate = 500, channelMask = 0xFF, packetLen = 128, resolution = 8 } = {}) {
-      const flags = proto.DataNotifFlag.EMG_RAW | proto.DataNotifFlag.EMG_GESTURE;
-      const switchResp = await sendCommand(proto.buildSetDataNotifSwitchCmd(flags));
-      if (switchResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
-        throw new Error('启用数据开关失败 (resp=' + switchResp.respCode + ')');
+      const newEmg = proto.isNewEmgDevice(deviceName);
+      log(newEmg ? '设备协议: 新版 EMG (SET_FUNCTION_SWITCH)' : '设备协议: 传统 EMG (SET_DATA_NOTIF_SWITCH)');
+
+      if (newEmg) {
+        const switchResp = await sendCommand(proto.buildSetFunctionSwitchCmd(true, true));
+        if (switchResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
+          throw new Error('启用 EMG 功能开关失败 (resp=' + switchResp.respCode + ')');
+        }
+        await sleep(500);
+      } else {
+        const flags = proto.DataNotifFlag.EMG_RAW | proto.DataNotifFlag.EMG_GESTURE;
+        const switchResp = await sendCommand(proto.buildSetDataNotifSwitchCmd(flags));
+        if (switchResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
+          throw new Error('启用数据开关失败 (resp=' + switchResp.respCode + ')');
+        }
       }
+
       const cfgResp = await sendCommand(proto.buildSetEmgRawConfigCmd(sampleRate, channelMask, packetLen, resolution));
       if (cfgResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
         throw new Error('EMG 参数配置失败 (resp=' + cfgResp.respCode + ')');
       }
+
+      if (newEmg) {
+        const pkgIdResp = await sendCommand(proto.buildPackageIdControlCmd(true));
+        if (pkgIdResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
+          log('⚠️ PACKAGE_ID_CONTROL 失败 (resp=' + pkgIdResp.respCode + ')，继续尝试接收数据');
+        }
+      }
+
       emgConfig = { channelCount: proto.popcount8(channelMask), interleaved: true, sampleRate };
       return emgConfig;
     },

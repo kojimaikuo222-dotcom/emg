@@ -1,10 +1,15 @@
 // gForce BLE Data Protocol constants and packet encode/decode.
-// Reverse-engineered from OYMotion's official gForceSDKAndroid.aar (gForceSDKAndroidDemo),
-// decompiled locally. Byte-level values below are read directly from the SDK's compiled
-// constants, not guessed. UUIDs confirmed against a real gForcePro+ over native Android BLE
-// (logged service/characteristic discovery on-device): the SIG-base short-form UUIDs an
-// earlier version of this app used (0000ffd0/ffd1/ffd4) do not exist on this hardware at
-// all — the real service is the TI-base UUID used by OYMotion's own SDK.
+// Two sources, cross-checked against each other:
+//  - OYMotion's official gForceSDKAndroid.aar (gForceSDKAndroidDemo), decompiled locally —
+//    covers the "legacy" EMG protocol (gForcePro/gForcePro+ and similar).
+//  - OYMotion's newer "Synchroni" Python SDK (PyPI package `sensor-sdk`, sdist 0.2.6 — the
+//    last version published with source instead of a compiled wheel) — covers the "new EMG"
+//    protocol used by newer devices (e.g. gForce Ultra / OYWW1000), which enable EMG via a
+//    completely different command (SET_FUNCTION_SWITCH) than legacy devices (SET_DATA_NOTIF_SWITCH).
+// UUIDs confirmed against real hardware over native Android BLE (logged service/characteristic
+// discovery on-device): the SIG-base short-form UUIDs an earlier version of this app used
+// (0000ffd0/ffd1/ffd4) do not exist on this hardware at all — the real service is the TI-base
+// UUID used by OYMotion's own SDK, shared by both protocol generations.
 
 export const SERVICE_UUID = 'f000ffd0-0451-4000-b000-000000000000';
 export const CMD_CHAR_UUID = 'f000ffe1-0451-4000-b000-000000000000';
@@ -23,16 +28,20 @@ export const CommandType = {
   GET_TEMPERATURE: 9,
   GET_BOOTLOADER_VERSION: 10,
   POWEROFF: 29,
+  SWITCH_TO_OAD: 30,
   SYSTEM_RESET: 31,
+  SWITCH_SERVICE: 32,
   SET_LOG_LEVEL: 33,
   MOTOR_CONTROL: 36,
   LED_CONTROL_TEST: 37,
+  PACKAGE_ID_CONTROL: 38,
   GET_EMG_RAWDATA_CAP: 62,
   SET_EMG_RAWDATA_CONFIG: 63,
   GET_EMG_RAWDATA_CONFIG: 70,
   GET_GESTURE_THRESHOLD: 71,
   SET_GESTURE_THRESHOLD: 72,
   SET_DATA_NOTIF_SWITCH: 79,
+  SET_FUNCTION_SWITCH: 0x85,
 };
 
 // Bit flags for CommandType.SET_DATA_NOTIF_SWITCH (32-bit, little-endian on the wire).
@@ -51,6 +60,29 @@ export const DataNotifFlag = {
   DEVICE_STATUS: 1 << 10,
   LOG: 1 << 11,
   ALL: -1,
+};
+
+// Bit flags for the GET_FEATURE_MAP (cmd=1) *response* — a completely different bit layout
+// from DataNotifFlag above, confirmed against the official Synchroni SDK's `FeatureMaps` enum.
+// (An earlier version of this file assumed GET_FEATURE_MAP reused the DataNotifFlag bits,
+// which happened to decode a real device's response into a plausible-looking but wrong
+// answer — this is the actual layout.)
+export const FeatureMap = {
+  ACC: 1 << 6,
+  GYRO: 1 << 7,
+  EULER: 1 << 9,
+  QUAT: 1 << 10,
+  GEST: 1 << 12,
+  EMG: 1 << 13,
+  MAGANG: 1 << 19,
+  EEG: 1 << 22,
+  ECG: 1 << 23,
+  IMPEDANCE: 1 << 24,
+  IMU: 1 << 25,
+  ADS: 1 << 26,
+  BRTH: 1 << 27,
+  PPG: 1 << 28,
+  CONCAT_BLE: 1 << 31,
 };
 
 // Leading type byte of each notification payload on DATA_CHAR_UUID.
@@ -106,19 +138,37 @@ export function buildGetEmgRawCapCmd() {
   return [CommandType.GET_EMG_RAWDATA_CAP];
 }
 
-// respData: the 4-byte payload of a GET_FEATURE_MAP (cmd=1) response, per the decompiled SDK
-// (little-endian u32, same bit layout as DataNotifFlag). Returns which flags this specific
-// device firmware declares support for — a device can ACK a SET_DATA_NOTIF_SWITCH write for a
-// bit it doesn't actually implement, so this is the one call that tells the truth up front.
+// respData: the 4-byte payload of a GET_FEATURE_MAP (cmd=1) response (little-endian u32).
+// Decoded against FeatureMap, not DataNotifFlag — they are unrelated bit layouts that happen
+// to share the same response command.
 export function parseFeatureMap(respData) {
   if (!respData || respData.length < 4) return null;
   const map = (respData[0] | (respData[1] << 8) | (respData[2] << 16) | (respData[3] << 24)) >>> 0;
   const names = [];
-  for (const [name, bit] of Object.entries(DataNotifFlag)) {
-    if (name === 'OFF' || name === 'ALL') continue;
+  for (const [name, bit] of Object.entries(FeatureMap)) {
     if (map & bit) names.push(name);
   }
   return { map, names };
+}
+
+// "New EMG" devices (everything except the legacy gForce/OHand/ORE-/OYEM-/ORehab product
+// lines) enable EMG via SET_FUNCTION_SWITCH instead of SET_DATA_NOTIF_SWITCH, and need an
+// extra PACKAGE_ID_CONTROL call. Matches the official Synchroni SDK's isNewEMG name-prefix
+// check exactly (sensor_data_context.py, initEMG()).
+const LEGACY_EMG_NAME_PREFIXES = ['gForce', 'OHand', 'ORE-', 'OYEM-', 'ORehab'];
+export function isNewEmgDevice(deviceName) {
+  const name = deviceName || '';
+  return !LEGACY_EMG_NAME_PREFIXES.some((p) => name.startsWith(p));
+}
+
+// bit1 = EMG raw, bit0 = gesture (gesture only takes effect when EMG is also on).
+export function buildSetFunctionSwitchCmd(emgOn, gestOn) {
+  const value = ((emgOn ? 1 : 0) << 1) | (emgOn && gestOn ? 1 : 0);
+  return [CommandType.SET_FUNCTION_SWITCH, value & 0xFF];
+}
+
+export function buildPackageIdControlCmd(enable) {
+  return [CommandType.PACKAGE_ID_CONTROL, enable ? 1 : 0];
 }
 
 export function popcount8(mask) {

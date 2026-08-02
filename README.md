@@ -47,6 +47,21 @@ gForcePro+ 8 通道肌电（EMG）采集与场景标注工具。支持两种运�
 如果连上真机后发现波形明显不对（比如 8 个通道看起来像是被"错位拼接"），去"波形"页切换一下
 **采样交织方式**下拉框即可，不需要改代码。
 
+## 新款设备（gForce Ultra / OYWW1000 等）：另一套启用协议
+
+不是所有 gForce 系列设备都用上面那套流程启用 EMG。OYMotion 更新的一代硬件（gForce Ultra 之类，
+设备名不以 `gForce`/`OHand`/`ORE-`/`OYEM-`/`ORehab` 开头的都算）走一条完全不同的启用路径，这是从
+OYMotion 官方新一代 "Synchroni" SDK 的 Python 源码里核对出来的（PyPI 上的 `sensor-sdk` 包，
+`sensor_data_context.py` 的 `initEMG()`）：
+
+- `GET_FEATURE_MAP`（cmd=1）返回的位图，**跟 `SET_DATA_NOTIF_SWITCH` 用的 flags 位图完全是两套不同的定义**，
+  只是恰好共用同一个查询指令。之前的版本误把两者当成同一套解析，把一台明明支持 EMG 的设备判断成"不支持"——
+  已修正，正确定义见 `protocol.js` 里的 `FeatureMap`（区别于 `DataNotifFlag`）。
+- 新款设备启用 EMG 不发 `SET_DATA_NOTIF_SWITCH`，而是发 `SET_FUNCTION_SWITCH`（cmd=0x85，
+  参数 bit1=EMG、bit0=手势），等 500ms 后再发 `SET_EMG_RAWDATA_CONFIG`，最后还要发一个
+  `PACKAGE_ID_CONTROL`（cmd=0x26，参数 `1`）。三步缺一都不行。
+- App 现在按设备名前缀自动判断走哪条路（`protocol.js` 的 `isNewEmgDevice()`），不需要手动切换。
+
 ## 已修复的问题（对照上一轮代码审查）
 
 - **数据持久化**：录制结果现在写入 IndexedDB（`web/js/db.js`），刷新页面/ 应用重启不会再丢失未下载的数据；"文件"页从数据库读取，并新增了"删除"按钮。
