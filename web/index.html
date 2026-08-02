@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d0e12">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>EMG 采集</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">EMG<span>/</span>采集</div>
+  <div class="pill"><div class="dot" id="dot"></div><span id="conn-txt">未连接</span></div>
+  <div class="rec-pill" id="rec-pill">● REC</div>
+  <div class="cnt">采样 <b id="cnt">0</b></div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('connect',this)">连接</div>
+  <div class="tab" onclick="showTab('record',this)">标注录制</div>
+  <div class="tab" onclick="showTab('wave',this)">波形</div>
+  <div class="tab" onclick="showTab('files',this)">文件</div>
+</div>
+
+<!-- CONNECT -->
+<div class="page active" id="tab-connect">
+<div class="connect-wrap">
+
+  <div class="ble-hint">
+    <p><b>使用须知</b><br>
+    Android App 内使用原生蓝牙；浏览器内需 Android Chrome（56+）且已开启手机蓝牙。<br>
+    gForcePro+ 开机后绿灯每2秒闪一次即可扫描连接。</p>
+  </div>
+
+  <div class="conn-info" id="conn-info">
+    <div class="conn-info-name" id="conn-name">—</div>
+    <div class="conn-info-addr" id="conn-addr">—</div>
+  </div>
+
+  <div class="section-title">设备</div>
+  <div class="scan-status" id="scan-status">点击下方按钮连接</div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btn-scan" onclick="scanDevice()" style="flex:1">扫描 gForce 设备</button>
+    <button class="btn btn-danger" id="btn-disc" onclick="doDisconnect()" style="display:none">断开</button>
+  </div>
+
+  <div style="margin-top:14px">
+    <div class="section-title" style="margin-bottom:6px">调试日志 <small style="font-weight:400;text-transform:none;color:var(--text2)">（连接问题时展开看）</small></div>
+    <div id="dbg-log" style="
+      background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+      padding:10px;font-family:monospace;font-size:10px;color:var(--text2);
+      max-height:140px;overflow-y:auto;line-height:1.7;
+    ">等待操作…</div>
+  </div>
+
+</div>
+</div>
+
+<!-- RECORD -->
+<div class="page" id="tab-record">
+<div class="record-wrap">
+
+  <div class="label-section">
+    <div class="section-title">场景</div>
+    <div class="chip-wrap" id="scene-chips">
+      <div class="chip" onclick="pickScene('民宿清扫',this)">🏨 民宿清扫</div>
+      <div class="chip" onclick="pickScene('家庭烹饪',this)">🍳 家庭烹饪</div>
+      <div class="chip" onclick="pickScene('家庭清洁',this)">🧹 家庭清洁</div>
+      <div class="chip" onclick="pickScene('洗涤整理',this)">🧺 洗涤整理</div>
+    </div>
+  </div>
+
+  <div class="label-section">
+    <div class="section-title">工序</div>
+    <div class="chip-wrap" id="task-chips"><div style="font-size:12px;color:var(--text2)">请先选择场景</div></div>
+  </div>
+
+  <div class="label-section">
+    <div class="section-title">工具</div>
+    <div class="chip-wrap" id="tool-chips"><div style="font-size:12px;color:var(--text2)">请先选择场景</div></div>
+  </div>
+
+  <div class="label-section">
+    <div class="section-title">备注（可选）</div>
+    <input class="note-input" id="note" type="text" placeholder="如：左手、疲劳状态…">
+  </div>
+
+</div>
+<div class="rec-bar">
+  <button class="btn btn-primary btn-block" id="btn-rec" onclick="toggleRec()">▶ 开始录制</button>
+  <div class="rec-status" id="rec-status">请先选择场景、工序和工具</div>
+</div>
+</div>
+
+<!-- WAVE -->
+<div class="page" id="tab-wave">
+<div class="wave-wrap">
+  <canvas id="wave-canvas"></canvas>
+  <div class="gesture-box">
+    <div class="gesture-label">识别手势</div>
+    <div class="gesture-val" id="gest-val">—</div>
+  </div>
+  <div class="ch-grid" id="ch-grid"></div>
+  <div class="adv-row">
+    <span>采样交织方式</span>
+    <select id="interleave-mode">
+      <option value="sample" selected>按采样点交织（默认）</option>
+      <option value="channel">按通道分块</option>
+    </select>
+  </div>
+</div>
+</div>
+
+<!-- FILES -->
+<div class="page" id="tab-files">
+<div class="files-wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div class="section-title" style="margin:0">已保存 CSV</div>
+    <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="renderFiles()">刷新</button>
+  </div>
+  <div id="files-list"><div class="empty">暂无文件</div></div>
+</div>
+</div>
+
+<script src="./dist/bundle.js"></script>
+</body>
+</html>

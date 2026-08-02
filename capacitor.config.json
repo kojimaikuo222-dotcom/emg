@@ -1,0 +1,8 @@
+{
+  "appId": "com.emgcollector.app",
+  "appName": "EMG采集",
+  "webDir": "web",
+  "android": {
+    "allowMixedContent": false
+  }
+}

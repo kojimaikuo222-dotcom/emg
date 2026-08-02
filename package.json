@@ -1,0 +1,26 @@
+{
+  "name": "emg-collector",
+  "version": "1.0.0",
+  "description": "gForcePro+ EMG data collector: browser PWA + Android app shell",
+  "private": true,
+  "scripts": {
+    "build:web": "esbuild web/js/app.js --bundle --outfile=web/dist/bundle.js --format=iife --target=es2019",
+    "watch:web": "npm run build:web -- --watch",
+    "cap:sync": "npm run build:web && npx cap sync android",
+    "android:debug": "npm run cap:sync && cd android && ./gradlew assembleDebug"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/kojimaikuo222-dotcom/emg"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor-community/bluetooth-le": "^8.2.0",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "esbuild": "^0.28.1"
+  }
+}
