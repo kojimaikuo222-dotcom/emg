@@ -25,6 +25,18 @@ export function createNativeBleTransport(log) {
       });
       log('GATT 已连接');
 
+      // Android's cached GATT profile for a device can be stale/incomplete on a first
+      // connection, which makes the service/characteristics connect() already discovered
+      // look empty to this specific BluetoothGatt instance. Force a fresh discovery and log
+      // exactly what the phone sees, so a "Characteristic not found" failure is diagnosable
+      // instead of a dead end.
+      await BleClient.discoverServices(deviceId);
+      const services = await BleClient.getServices(deviceId);
+      log('发现 ' + services.length + ' 个 Service');
+      for (const s of services) {
+        log('  SVC ' + s.uuid + ' -> ' + s.characteristics.map((c) => c.uuid).join(', '));
+      }
+
       await BleClient.startNotifications(deviceId, SERVICE_UUID, CMD_CHAR_UUID, (value) => {
         if (cmdCb) cmdCb(new Uint8Array(dataViewToNumbers(value)));
       });
