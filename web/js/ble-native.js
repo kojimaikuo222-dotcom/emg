@@ -1,7 +1,7 @@
 // Native BLE transport for the Android app shell, via @capacitor-community/bluetooth-le.
 // This is what actually talks to real Android BluetoothGatt — Web Bluetooth does not exist
 // inside a Capacitor WebView, which is why the APK needs this separate transport.
-import { BleClient, numbersToDataView, dataViewToNumbers } from '@capacitor-community/bluetooth-le';
+import { BleClient, ConnectionPriority, numbersToDataView, dataViewToNumbers } from '@capacitor-community/bluetooth-le';
 import { SERVICE_UUID, CMD_CHAR_UUID, DATA_CHAR_UUID } from './protocol.js';
 
 export function createNativeBleTransport(log) {
@@ -29,6 +29,19 @@ export function createNativeBleTransport(log) {
       });
       log('GATT 已连接');
 
+      // The EMG stream is ~30 notifications/sec at the default 500Hz/128-byte config. Under
+      // Android's default "balanced" connection priority the negotiated connection interval
+      // can be too slow for some peripherals' BLE chips to keep their notification queue
+      // drained, and the peripheral itself drops the connection a few seconds into streaming
+      // (observed on real hardware). Requesting a high-priority (short interval) connection
+      // is the standard fix; harmless to request even for devices that didn't need it.
+      try {
+        await BleClient.requestConnectionPriority(deviceId, ConnectionPriority.CONNECTION_PRIORITY_HIGH);
+        log('已请求高优先级连接参数');
+      } catch (e) {
+        log('请求连接优先级失败（可忽略）: ' + e.message);
+      }
+
       // Android's cached GATT profile for a device can be stale/incomplete on a first
       // connection, which makes the service/characteristics connect() already discovered
       // look empty to this specific BluetoothGatt instance. Force a fresh discovery and log
@@ -47,22 +60,6 @@ export function createNativeBleTransport(log) {
       await BleClient.startNotifications(deviceId, SERVICE_UUID, DATA_CHAR_UUID, onDataNotification);
 
       return { deviceId, deviceName: device.name || '设备' };
-    },
-
-    // Some devices (the "new EMG" generation) appear to reset their BLE notification
-    // subscription (CCCD) state as a side effect of a mode-switch command
-    // (SET_FUNCTION_SWITCH), silently invalidating the subscription made right after
-    // connect. Re-subscribing once the enable sequence is done is cheap and matches the
-    // official SDK's actual ordering (it subscribes to data last, after all config).
-    async resubscribeData() {
-      if (!deviceId) return;
-      try {
-        await BleClient.stopNotifications(deviceId, SERVICE_UUID, DATA_CHAR_UUID);
-      } catch (e) {
-        // fine if it was never actually subscribed — we're about to (re)subscribe anyway
-      }
-      await BleClient.startNotifications(deviceId, SERVICE_UUID, DATA_CHAR_UUID, onDataNotification);
-      log('已重新订阅数据通知');
     },
 
     async disconnect() {

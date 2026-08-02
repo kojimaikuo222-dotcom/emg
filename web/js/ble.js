@@ -124,7 +124,13 @@ export function createBleController({ log }) {
       log(newEmg ? '设备协议: 新版 EMG (SET_FUNCTION_SWITCH)' : '设备协议: 传统 EMG (SET_DATA_NOTIF_SWITCH)');
 
       if (newEmg) {
-        const switchResp = await sendCommand(proto.buildSetFunctionSwitchCmd(true, true));
+        // Gesture recognition is deliberately left off here: the official SDK never turns
+        // it on together with raw EMG for this device generation's BLE chip (it explicitly
+        // disables gesture/IMU/acc/gyro/quat/euler notifications for "new EMG" devices on
+        // what it calls the OYM chip type, keeping only the EMG stream running) — and this
+        // hardware disconnects a few seconds into streaming when both are requested at once,
+        // consistent with its notification queue not keeping up with two concurrent streams.
+        const switchResp = await sendCommand(proto.buildSetFunctionSwitchCmd(true, false));
         if (switchResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
           throw new Error('启用 EMG 功能开关失败 (resp=' + switchResp.respCode + ')');
         }
@@ -154,7 +160,8 @@ export function createBleController({ log }) {
         // command the legacy branch uses as its *only* enable step) is what actually turns
         // the notification stream on, for both device generations. Skipping this for new-EMG
         // devices is why commands all ACK success yet literally zero packets ever arrive.
-        const flags = proto.DataNotifFlag.EMG_RAW | proto.DataNotifFlag.EMG_GESTURE;
+        // EMG_RAW only (see the no-gesture note above) — not EMG_RAW | EMG_GESTURE.
+        const flags = proto.DataNotifFlag.EMG_RAW;
         const notifResp = await sendCommand(proto.buildSetDataNotifSwitchCmd(flags));
         if (notifResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
           log('⚠️ SET_DATA_NOTIF_SWITCH 失败 (resp=' + notifResp.respCode + ')，继续尝试接收数据');

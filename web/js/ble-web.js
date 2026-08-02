@@ -56,19 +56,6 @@ export function createWebBleTransport(log) {
       return { deviceId: device.id, deviceName: device.name || '设备' };
     },
 
-    // See ble-native.js's resubscribeData() for why this exists — kept here too so ble.js
-    // can call it unconditionally regardless of which transport is active.
-    async resubscribeData() {
-      if (!dataChar) return;
-      try {
-        await dataChar.stopNotifications();
-      } catch (e) {
-        // fine if it was never actually subscribed — we're about to (re)subscribe anyway
-      }
-      await dataChar.startNotifications();
-      log('已重新订阅数据通知');
-    },
-
     async disconnect() {
       if (device && device.gatt.connected) device.gatt.disconnect();
     },
