@@ -31,7 +31,10 @@ export function createBleController({ log }) {
 
   let loggedFirstEmgPacket = false;
   transport.onData((bytes) => {
-    if (!loggedFirstEmgPacket && bytes.length > 0 && bytes[0] === proto.NotifDataType.EMG_RAW) {
+    // "Packaged" notifications (sent once PACKAGE_ID_CONTROL is on) OR 0x80 onto the type
+    // byte, so the raw byte no longer equals NotifDataType.EMG_RAW directly — see
+    // parseDataNotification()'s handling of the same bit for the authoritative version.
+    if (!loggedFirstEmgPacket && bytes.length > 0 && (bytes[0] & 0x7F) === proto.NotifDataType.EMG_RAW) {
       loggedFirstEmgPacket = true;
       log('首个 EMG_RAW 包 (' + bytes.length + '字节): ' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join(' '));
     }
@@ -158,14 +161,13 @@ export function createBleController({ log }) {
         }
       }
 
-      // The mode-switch/config commands above may reset the device's notification
-      // subscription state as a side effect (observed on "new EMG" hardware: commands all
-      // ACK success, but zero data notifications ever arrive). Re-subscribing here, after
-      // the enable sequence is fully done, matches the official SDK's actual ordering
-      // (it subscribes to data last) and is a cheap no-op for devices that don't need it.
-      if (transport.resubscribeData) {
-        await transport.resubscribeData();
-      }
+      // NOTE: an earlier version of this function re-subscribed to DATA_CHAR_UUID here,
+      // on the theory that SET_FUNCTION_SWITCH resets the device's CCCD state. Real-device
+      // testing showed two things: (1) that theory was wrong — SET_DATA_NOTIF_SWITCH above
+      // is what actually starts the stream, subscription was never the issue; and (2) doing
+      // a stop/start notification toggle right as a "new EMG" device begins actively pushing
+      // ~30 packets/sec is a plausible way to destabilize its BLE stack — the device started
+      // streaming and then disconnected within seconds once this call was added. Removed.
 
       emgConfig = { channelCount: proto.popcount8(channelMask), interleaved: true, sampleRate };
       return emgConfig;

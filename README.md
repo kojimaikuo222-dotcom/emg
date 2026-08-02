@@ -74,8 +74,20 @@ OYMotion 官方新一代 "Synchroni" SDK 的 Python 源码里核对出来的（P
   再发一次 `set_subscription()`（也就是 `SET_DATA_NOTIF_SWITCH`）才真正让固件开始推送。
   之前的新设备分支完全没有发送这条指令，这才是"指令全成功、但一个包都收不到"的真正原因。
   已修复：新设备分支现在会在 `PACKAGE_ID_CONTROL` 之后，额外发送一次
-  `SET_DATA_NOTIF_SWITCH(EMG_RAW | EMG_GESTURE)`。CCCD 重新订阅的兜底逻辑予以保留，
-  对老款设备没有副作用。
+  `SET_DATA_NOTIF_SWITCH(EMG_RAW | EMG_GESTURE)`。
+- **数据包类型字节对不上、连上后没几秒又掉线**：加上 `SET_DATA_NOTIF_SWITCH` 之后 OYWW1000
+  真的开始推数据了，但调试日志全是"未知数据包 type=0x88 len=130"，而且开始收数据几秒后设备
+  自己断开连接。两个问题分别查到了原因：
+  1. `PACKAGE_ID_CONTROL(true)` 生效后，设备会在类型字节上 OR `0x80`（`8`→`0x88`），并且在
+     实际数据前面多塞 2 字节的"包序号"（对照官方 SDK `_processDataPackage()` 的
+     `data[0] & 0x7F` 取类型、`packageIndexLength + 1` 起跳读数据，完全对应）。`128字节 EMG
+     数据 + 2字节包序号 = 130字节`，正好和日志对上。已修复 `parseDataNotification()`：先用
+     `& 0x7F` 还原真实类型，再跳过打包模式下多出来的 2 字节包序号。老款设备从没启用过
+     `PACKAGE_ID_CONTROL`，这个位永远不会被置位，所以完全不受影响。
+  2. 上一轮加的"重新订阅数据通知"（`resubscribeData()`，见上一条）现在看是多余且有害的——
+     `SET_DATA_NOTIF_SWITCH` 一 ACK，设备可能立刻就开始用近 30 包/秒的速度推流了，这时候再
+     去做一次"取消订阅再重新订阅"等于在设备高速推流时把通知开关掉一下又开回来，很可能就是
+     这个动作把设备的蓝牙协议栈搞乱导致断连。已把这次调用去掉。
 
 ## 已修复的问题（对照上一轮代码审查）
 

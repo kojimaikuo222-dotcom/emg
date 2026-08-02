@@ -187,10 +187,18 @@ function readFloatLE(bytes, offset) {
 // channelCount + sampleInterleaved describe how EMG_RAW batches are unpacked; both are
 // configurable at runtime (see settings) since the exact byte ordering isn't spelled out
 // in the parts of the SDK we could decompile (params only, no sample-packing code).
+// Once PACKAGE_ID_CONTROL is turned on (this app only does that for "new EMG" devices),
+// the device ORs 0x80 onto the notification type byte and prepends a 2-byte little-endian
+// package index before the actual payload — confirmed against the official Synchroni SDK's
+// packet dispatcher (`_processDataPackage`/`checkReadSamples` in sensor_data_context.py,
+// which mask the type with `& 0x7F` and offset past `packageIndexLength + 1` bytes). Legacy
+// devices never get PACKAGE_ID_CONTROL enabled by this app, so this bit is simply never set
+// for them and the payload layout is unchanged.
 export function parseDataNotification(bytes, { channelCount = 8, interleaved = true } = {}) {
   if (!bytes || bytes.length < 1) return null;
-  const type = bytes[0];
-  const payload = bytes.subarray(1);
+  const packaged = (bytes[0] & 0x80) !== 0;
+  const type = bytes[0] & 0x7F;
+  const payload = packaged ? bytes.subarray(3) : bytes.subarray(1);
 
   switch (type) {
     case NotifDataType.EMG_RAW: {
