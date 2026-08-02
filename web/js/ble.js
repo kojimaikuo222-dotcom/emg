@@ -144,6 +144,18 @@ export function createBleController({ log }) {
         if (pkgIdResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
           log('⚠️ PACKAGE_ID_CONTROL 失败 (resp=' + pkgIdResp.respCode + ')，继续尝试接收数据');
         }
+
+        // The official SDK's initEMG()/init() flow does SET_FUNCTION_SWITCH +
+        // SET_EMG_RAWDATA_CONFIG + PACKAGE_ID_CONTROL exactly like above, but that alone
+        // does not start data flowing — a final SET_DATA_NOTIF_SWITCH call (the same
+        // command the legacy branch uses as its *only* enable step) is what actually turns
+        // the notification stream on, for both device generations. Skipping this for new-EMG
+        // devices is why commands all ACK success yet literally zero packets ever arrive.
+        const flags = proto.DataNotifFlag.EMG_RAW | proto.DataNotifFlag.EMG_GESTURE;
+        const notifResp = await sendCommand(proto.buildSetDataNotifSwitchCmd(flags));
+        if (notifResp.respCode !== proto.RESPONSE_CODE.SUCCESS) {
+          log('⚠️ SET_DATA_NOTIF_SWITCH 失败 (resp=' + notifResp.respCode + ')，继续尝试接收数据');
+        }
       }
 
       // The mode-switch/config commands above may reset the device's notification

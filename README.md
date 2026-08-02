@@ -63,11 +63,19 @@ OYMotion 官方新一代 "Synchroni" SDK 的 Python 源码里核对出来的（P
 - App 现在按设备名前缀自动判断走哪条路（`protocol.js` 的 `isNewEmgDevice()`），不需要手动切换。
 - **新款设备指令全部成功但收不到任何数据包**：真机调试发现 `SET_FUNCTION_SWITCH` /
   `SET_EMG_RAWDATA_CONFIG` / `PACKAGE_ID_CONTROL` 三条指令都返回成功，波形图却完全是平的，
-  连"未知类型"的日志都没触发过——说明设备根本没有在推送任何通知包。原因是模式切换指令
-  很可能把设备的 BLE 通知订阅状态（CCCD）重置掉了，而连接时订阅数据通知是在这些指令之前做的，
-  之后没人再重新订阅。修复：`enableEmg()` 走完整套启用流程之后，会调用传输层的
-  `resubscribeData()`（`ble-native.js`/`ble-web.js` 都实现了）重新订阅一次数据特征值的通知，
-  对不需要这一步的老款设备来说只是多一次无副作用的重新订阅。
+  连"未知类型"的日志都没触发过——说明设备根本没有在推送任何通知包。
+  第一轮怀疑是 BLE 通知订阅状态（CCCD）被模式切换指令重置，加了重新订阅（`resubscribeData()`）
+  但真机验证无效，问题依旧。后来把官方 Python SDK 的 `sensor_data_context.py` 里
+  `SensorDataContext.init()` / `initEMG()` 的完整调用顺序通读了一遍才找到真正原因：
+  **不管新老设备，真正打开数据推送开关的都是 `SET_DATA_NOTIF_SWITCH`（cmd=0x4F，老代码里
+  唯一的启用指令）**；新款设备的 `SET_FUNCTION_SWITCH`/`SET_EMG_RAWDATA_CONFIG`/
+  `PACKAGE_ID_CONTROL` 三连只是配置采样参数和包格式，本身并不会让设备开始推流——官方 SDK
+  在这三步之后，仍然会调用 `_buildNotifyDataFlag()` 拼出包含 `EMG_RAW` 位的订阅掩码，
+  再发一次 `set_subscription()`（也就是 `SET_DATA_NOTIF_SWITCH`）才真正让固件开始推送。
+  之前的新设备分支完全没有发送这条指令，这才是"指令全成功、但一个包都收不到"的真正原因。
+  已修复：新设备分支现在会在 `PACKAGE_ID_CONTROL` 之后，额外发送一次
+  `SET_DATA_NOTIF_SWITCH(EMG_RAW | EMG_GESTURE)`。CCCD 重新订阅的兜底逻辑予以保留，
+  对老款设备没有副作用。
 
 ## 已修复的问题（对照上一轮代码审查）
 
