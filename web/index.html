@@ -16,10 +16,15 @@
 <div class="app-shell">
 
 <header>
-  <div class="logo">EMG<span>/</span>采集</div>
+  <div class="logo">EMG<span>/</span><span id="header-suffix">采集</span></div>
   <div class="pill"><div class="dot" id="dot"></div><span id="conn-txt">未连接</span></div>
   <div class="rec-pill" id="rec-pill">● REC</div>
-  <div class="cnt">采样 <b id="cnt">0</b></div>
+  <div class="cnt"><span id="cnt-label">采样</span> <b id="cnt">0</b></div>
+  <select class="lang-select" id="lang-select">
+    <option value="zh">中</option>
+    <option value="ja">日</option>
+    <option value="en">EN</option>
+  </select>
 </header>
 
 <!-- CONNECT -->
@@ -28,9 +33,9 @@
 
   <div class="ble-hint">
     <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-8l4 4-4 4"/></svg>
-    <p><b>使用须知</b><br>
-    Android App 内使用原生蓝牙；浏览器内需 Android Chrome（56+）且已开启手机蓝牙。<br>
-    gForcePro+ 开机后绿灯每2秒闪一次即可扫描连接。</p>
+    <p><b id="notice-title">使用须知</b><br>
+    <span id="notice-body">Android App 内使用原生蓝牙；浏览器内需 Android Chrome（56+）且已开启手机蓝牙。<br>
+    gForcePro+ 开机后绿灯每2秒闪一次即可扫描连接。</span></p>
   </div>
 
   <div class="conn-info" id="conn-info">
@@ -39,7 +44,7 @@
   </div>
 
   <div>
-    <div class="section-title">设备</div>
+    <div class="section-title" id="device-label">设备</div>
     <div class="scan-status" id="scan-status">点击下方按钮连接</div>
   </div>
 
@@ -49,7 +54,7 @@
   </div>
 
   <div class="log-card">
-    <div class="section-title">调试日志 <small>（连接问题时展开看）</small></div>
+    <div class="section-title"><span id="debug-log-title">调试日志</span> <small id="debug-log-hint">（连接问题时展开看）</small></div>
     <div id="dbg-log">等待操作…</div>
   </div>
 
@@ -61,28 +66,29 @@
 <div class="record-wrap">
 
   <div class="label-section">
-    <div class="section-title">场景</div>
-    <div class="chip-wrap" id="scene-chips">
-      <div class="chip" onclick="pickScene('民宿清扫',this)">🏨 民宿清扫</div>
-      <div class="chip" onclick="pickScene('家庭烹饪',this)">🍳 家庭烹饪</div>
-      <div class="chip" onclick="pickScene('家庭清洁',this)">🧹 家庭清洁</div>
-      <div class="chip" onclick="pickScene('洗涤整理',this)">🧺 洗涤整理</div>
-    </div>
+    <div class="section-title" id="section-scene">场景</div>
+    <div class="chip-wrap" id="scene-chips"></div>
   </div>
 
   <div class="label-section">
-    <div class="section-title">工序</div>
-    <div class="chip-wrap" id="task-chips"><div style="font-size:12px;color:var(--muted)">请先选择场景</div></div>
+    <div class="section-title" id="section-task">工序</div>
+    <div class="chip-wrap" id="task-chips"></div>
   </div>
 
   <div class="label-section">
-    <div class="section-title">工具</div>
-    <div class="chip-wrap" id="tool-chips"><div style="font-size:12px;color:var(--muted)">请先选择场景</div></div>
+    <div class="section-title" id="section-tool">工具</div>
+    <div class="chip-wrap" id="tool-chips"></div>
   </div>
 
   <div class="label-section">
-    <div class="section-title">备注（可选）</div>
+    <div class="section-title" id="section-note">备注（可选）</div>
     <input class="note-input" id="note" type="text" placeholder="如：左手、疲劳状态…">
+  </div>
+
+  <div class="label-section">
+    <div class="section-title" id="section-custom-fields">自定义字段</div>
+    <div id="custom-fields-list"></div>
+    <button class="btn btn-outline" id="btn-add-field" style="margin-top:8px;padding:8px 14px;font-size:12.5px" onclick="addCustomFieldRow()">+ 添加字段</button>
   </div>
 
 </div>
@@ -97,12 +103,12 @@
 <div class="wave-wrap">
   <canvas id="wave-canvas"></canvas>
   <div class="gesture-box">
-    <div class="gesture-label">识别手势</div>
+    <div class="gesture-label" id="gesture-label">识别手势</div>
     <div class="gesture-val" id="gest-val">—</div>
   </div>
   <div class="ch-grid" id="ch-grid"></div>
   <div class="adv-row">
-    <span>采样交织方式</span>
+    <span id="interleave-label">采样交织方式</span>
     <select id="interleave-mode">
       <option value="sample" selected>按采样点交织（默认）</option>
       <option value="channel">按通道分块</option>
@@ -115,8 +121,8 @@
 <div class="page" id="tab-files">
 <div class="files-wrap">
   <div class="files-head">
-    <div class="section-title">已保存 CSV</div>
-    <button class="btn btn-outline" style="padding:7px 14px;font-size:12px" onclick="renderFiles()">刷新</button>
+    <div class="section-title" id="files-title">已保存 CSV</div>
+    <button class="btn btn-outline" id="btn-refresh" style="padding:7px 14px;font-size:12px" onclick="renderFiles()">刷新</button>
   </div>
   <div id="files-list"><div class="empty">暂无文件</div></div>
 </div>
@@ -125,19 +131,19 @@
 <nav class="tabs">
   <div class="tab active" onclick="showTab('connect',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg>
-    <span class="tab-label">连接</span>
+    <span class="tab-label" id="nav-connect">连接</span>
   </div>
   <div class="tab" onclick="showTab('record',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L11 3.83A2 2 0 0 0 9.6 3.17L4 3a1 1 0 0 0-1 1l.17 5.6a2 2 0 0 0 .66 1.4l9.58 9.58a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/></svg>
-    <span class="tab-label">标注录制</span>
+    <span class="tab-label" id="nav-record">标注录制</span>
   </div>
   <div class="tab" onclick="showTab('wave',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    <span class="tab-label">波形</span>
+    <span class="tab-label" id="nav-wave">波形</span>
   </div>
   <div class="tab" onclick="showTab('files',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-    <span class="tab-label">文件</span>
+    <span class="tab-label" id="nav-files">文件</span>
   </div>
 </nav>
 

@@ -104,7 +104,10 @@ export const NotifDataType = {
 
 export const RESPONSE_CODE = { SUCCESS: 0, NOT_SUPPORT: 1, BAD_PARAM: 2, FAILED: 3, TIMEOUT: 4, PARTIAL_PACKET: 255 };
 
-export const GESTURE_LABELS = { 0: '未知', 1: '握拳', 2: '手展开', 3: '波浪内', 4: '波浪外', 5: '掐指', 6: '射击', 255: '放松' };
+// Canonical (language-neutral) gesture names, keyed by the gestureId byte. UI-facing
+// translations live in i18n.js — this file stays free of display text, per the module
+// comment at the top (protocol constants and encode/decode only).
+export const GESTURE_IDS = { 0: 'unknown', 1: 'fist', 2: 'palm_open', 3: 'wave_in', 4: 'wave_out', 5: 'pinch', 6: 'shoot', 255: 'relax' };
 
 export function buildSetDataNotifSwitchCmd(flags) {
   return [

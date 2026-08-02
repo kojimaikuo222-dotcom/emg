@@ -75,6 +75,11 @@ header{
 .rec-pill.show{display:flex;animation:fadeIn .2s ease}
 .cnt{margin-left:auto;font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);white-space:nowrap}
 .cnt b{color:var(--acc);font-weight:700}
+.lang-select{
+  background:var(--surf2);color:var(--text2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:5px 6px;font-size:11px;font-family:inherit;
+  -webkit-appearance:none;flex-shrink:0;
+}
 
 @keyframes fadeIn{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
 
@@ -150,6 +155,25 @@ header{
   border-color:var(--acc);color:var(--acc-ink);background:var(--acc);font-weight:700;
   box-shadow:0 2px 10px rgba(43,227,171,.28);
 }
+.chip.chip-add{border-style:dashed;color:var(--muted)}
+.chip.chip-add:active{border-color:var(--acc2);color:var(--acc2)}
+
+.custom-field-row{display:flex;gap:8px;margin-top:8px;align-items:center}
+.field-input{
+  flex:1;min-width:0;padding:9px 11px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surf);
+  color:var(--text);font-size:13px;font-family:inherit;outline:none;
+  -webkit-appearance:none;transition:border-color .15s;
+}
+.field-input:focus{border-color:var(--acc2)}
+.field-input::placeholder{color:var(--muted)}
+.field-rm{
+  flex-shrink:0;width:30px;height:30px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surf2);color:var(--rec);
+  font-size:16px;line-height:1;cursor:pointer;font-family:inherit;
+}
+.field-rm:active{background:rgba(208,59,59,.14)}
+
 .note-input{
   width:100%;padding:11px 13px;border-radius:var(--radius-md);
   border:1px solid var(--border);background:var(--surf);
