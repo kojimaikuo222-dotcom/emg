@@ -1,12 +1,14 @@
 // gForce BLE Data Protocol constants and packet encode/decode.
 // Reverse-engineered from OYMotion's official gForceSDKAndroid.aar (gForceSDKAndroidDemo),
 // decompiled locally. Byte-level values below are read directly from the SDK's compiled
-// constants, not guessed. UUIDs are the SIG-base short-form UUIDs actually exposed by the
-// gForcePro+ hardware over BLE (validated: this device does deliver notifications on ffd4).
+// constants, not guessed. UUIDs confirmed against a real gForcePro+ over native Android BLE
+// (logged service/characteristic discovery on-device): the SIG-base short-form UUIDs an
+// earlier version of this app used (0000ffd0/ffd1/ffd4) do not exist on this hardware at
+// all — the real service is the TI-base UUID used by OYMotion's own SDK.
 
-export const SERVICE_UUID = '0000ffd0-0000-1000-8000-00805f9b34fb';
-export const CMD_CHAR_UUID = '0000ffd1-0000-1000-8000-00805f9b34fb';
-export const DATA_CHAR_UUID = '0000ffd4-0000-1000-8000-00805f9b34fb';
+export const SERVICE_UUID = 'f000ffd0-0451-4000-b000-000000000000';
+export const CMD_CHAR_UUID = 'f000ffe1-0451-4000-b000-000000000000';
+export const DATA_CHAR_UUID = 'f000ffe2-0451-4000-b000-000000000000';
 
 export const CommandType = {
   GET_PROTOCOL_VERSION: 0,
