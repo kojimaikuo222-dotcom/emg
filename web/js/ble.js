@@ -146,6 +146,15 @@ export function createBleController({ log }) {
         }
       }
 
+      // The mode-switch/config commands above may reset the device's notification
+      // subscription state as a side effect (observed on "new EMG" hardware: commands all
+      // ACK success, but zero data notifications ever arrive). Re-subscribing here, after
+      // the enable sequence is fully done, matches the official SDK's actual ordering
+      // (it subscribes to data last) and is a cheap no-op for devices that don't need it.
+      if (transport.resubscribeData) {
+        await transport.resubscribeData();
+      }
+
       emgConfig = { channelCount: proto.popcount8(channelMask), interleaved: true, sampleRate };
       return emgConfig;
     },

@@ -61,6 +61,13 @@ OYMotion 官方新一代 "Synchroni" SDK 的 Python 源码里核对出来的（P
   参数 bit1=EMG、bit0=手势），等 500ms 后再发 `SET_EMG_RAWDATA_CONFIG`，最后还要发一个
   `PACKAGE_ID_CONTROL`（cmd=0x26，参数 `1`）。三步缺一都不行。
 - App 现在按设备名前缀自动判断走哪条路（`protocol.js` 的 `isNewEmgDevice()`），不需要手动切换。
+- **新款设备指令全部成功但收不到任何数据包**：真机调试发现 `SET_FUNCTION_SWITCH` /
+  `SET_EMG_RAWDATA_CONFIG` / `PACKAGE_ID_CONTROL` 三条指令都返回成功，波形图却完全是平的，
+  连"未知类型"的日志都没触发过——说明设备根本没有在推送任何通知包。原因是模式切换指令
+  很可能把设备的 BLE 通知订阅状态（CCCD）重置掉了，而连接时订阅数据通知是在这些指令之前做的，
+  之后没人再重新订阅。修复：`enableEmg()` 走完整套启用流程之后，会调用传输层的
+  `resubscribeData()`（`ble-native.js`/`ble-web.js` 都实现了）重新订阅一次数据特征值的通知，
+  对不需要这一步的老款设备来说只是多一次无副作用的重新订阅。
 
 ## 已修复的问题（对照上一轮代码审查）
 

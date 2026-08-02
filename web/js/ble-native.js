@@ -9,6 +9,10 @@ export function createNativeBleTransport(log) {
   let dataCb = null;
   let cmdCb = null;
 
+  function onDataNotification(value) {
+    if (dataCb) dataCb(new Uint8Array(dataViewToNumbers(value)));
+  }
+
   return {
     async init() {
       await BleClient.initialize({ androidNeverForLocation: true });
@@ -40,11 +44,25 @@ export function createNativeBleTransport(log) {
       await BleClient.startNotifications(deviceId, SERVICE_UUID, CMD_CHAR_UUID, (value) => {
         if (cmdCb) cmdCb(new Uint8Array(dataViewToNumbers(value)));
       });
-      await BleClient.startNotifications(deviceId, SERVICE_UUID, DATA_CHAR_UUID, (value) => {
-        if (dataCb) dataCb(new Uint8Array(dataViewToNumbers(value)));
-      });
+      await BleClient.startNotifications(deviceId, SERVICE_UUID, DATA_CHAR_UUID, onDataNotification);
 
       return { deviceId, deviceName: device.name || '设备' };
+    },
+
+    // Some devices (the "new EMG" generation) appear to reset their BLE notification
+    // subscription (CCCD) state as a side effect of a mode-switch command
+    // (SET_FUNCTION_SWITCH), silently invalidating the subscription made right after
+    // connect. Re-subscribing once the enable sequence is done is cheap and matches the
+    // official SDK's actual ordering (it subscribes to data last, after all config).
+    async resubscribeData() {
+      if (!deviceId) return;
+      try {
+        await BleClient.stopNotifications(deviceId, SERVICE_UUID, DATA_CHAR_UUID);
+      } catch (e) {
+        // fine if it was never actually subscribed — we're about to (re)subscribe anyway
+      }
+      await BleClient.startNotifications(deviceId, SERVICE_UUID, DATA_CHAR_UUID, onDataNotification);
+      log('已重新订阅数据通知');
     },
 
     async disconnect() {
