@@ -43,6 +43,12 @@
     <div class="conn-info-addr" id="conn-addr">—</div>
   </div>
 
+  <div class="signal-quality" id="signal-quality" style="display:none">
+    <div class="section-title" id="signal-quality-title">信号质量</div>
+    <div class="sig-dots" id="sig-dots"></div>
+    <div class="sig-summary" id="sig-summary">—</div>
+  </div>
+
   <div>
     <div class="section-title" id="device-label">设备</div>
     <div class="scan-status" id="scan-status">点击下方按钮连接</div>
@@ -66,17 +72,22 @@
 <div class="record-wrap">
 
   <div class="label-section">
-    <div class="section-title" id="section-scene">场景</div>
+    <div class="section-title" id="section-subject">受试者编号（可选）</div>
+    <input class="note-input" id="subject-id" type="text" placeholder="如：S001、张三…">
+  </div>
+
+  <div class="label-section">
+    <div class="section-title step-title"><span class="step-num" id="step-num-scene">1</span><span id="section-scene">场景</span></div>
     <div class="chip-wrap" id="scene-chips"></div>
   </div>
 
   <div class="label-section">
-    <div class="section-title" id="section-task">工序</div>
+    <div class="section-title step-title"><span class="step-num" id="step-num-task">2</span><span id="section-task">工序</span></div>
     <div class="chip-wrap" id="task-chips"></div>
   </div>
 
   <div class="label-section">
-    <div class="section-title" id="section-tool">工具</div>
+    <div class="section-title step-title"><span class="step-num" id="step-num-tool">3</span><span id="section-tool">工具</span></div>
     <div class="chip-wrap" id="tool-chips"></div>
   </div>
 
@@ -120,6 +131,12 @@
 <!-- FILES -->
 <div class="page" id="tab-files">
 <div class="files-wrap">
+  <div class="stats-row" id="stats-row" style="display:none">
+    <div class="stat-tile"><div class="stat-val" id="stat-sessions">0</div><div class="stat-label" id="stat-sessions-label">总记录</div></div>
+    <div class="stat-tile"><div class="stat-val" id="stat-subjects">0</div><div class="stat-label" id="stat-subjects-label">受试者</div></div>
+    <div class="stat-tile"><div class="stat-val" id="stat-duration">0</div><div class="stat-label" id="stat-duration-label">总时长</div></div>
+    <div class="stat-tile"><div class="stat-val" id="stat-size">0</div><div class="stat-label" id="stat-size-label">总大小</div></div>
+  </div>
   <div class="files-head">
     <div class="section-title" id="files-title">已保存 CSV</div>
     <button class="btn btn-outline" id="btn-refresh" style="padding:7px 14px;font-size:12px" onclick="renderFiles()">刷新</button>

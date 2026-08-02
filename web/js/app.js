@@ -94,6 +94,7 @@ function updateConnUI() {
     document.getElementById('btn-scan').textContent = t('btn_scan');
     info.classList.remove('show');
   }
+  renderSignalQuality();
   updateRecStatus();
 }
 
@@ -192,14 +193,24 @@ function renderSceneChips() {
   wrap.appendChild(makeAddChip(addCustomScene));
 }
 
+// The "select a scene first" placeholder reads as guidance toward the next step (dashed
+// box + arrow icon) rather than as an empty/broken state — this is what a scene-less
+// task/tool section renders instead of chips.
+function makeStepHint() {
+  const hint = document.createElement('div');
+  hint.className = 'step-hint';
+  hint.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+  const span = document.createElement('span');
+  span.textContent = t('select_scene_first');
+  hint.appendChild(span);
+  return hint;
+}
+
 function renderTaskChips() {
   const wrap = document.getElementById('task-chips');
   wrap.innerHTML = '';
   if (!selSceneId) {
-    const hint = document.createElement('div');
-    hint.style.cssText = 'font-size:12px;color:var(--muted)';
-    hint.textContent = t('select_scene_first');
-    wrap.appendChild(hint);
+    wrap.appendChild(makeStepHint());
     return;
   }
   const presetIds = SCENE_DEFS[selSceneId] ? SCENE_DEFS[selSceneId].tasks : [];
@@ -216,10 +227,7 @@ function renderToolChips() {
   const wrap = document.getElementById('tool-chips');
   wrap.innerHTML = '';
   if (!selSceneId) {
-    const hint = document.createElement('div');
-    hint.style.cssText = 'font-size:12px;color:var(--muted)';
-    hint.textContent = t('select_scene_first');
-    wrap.appendChild(hint);
+    wrap.appendChild(makeStepHint());
     return;
   }
   const presetIds = SCENE_DEFS[selSceneId] ? SCENE_DEFS[selSceneId].tools : [];
@@ -280,7 +288,21 @@ function addCustomTool() {
   pickTool(name);
 }
 
+function setStepBadge(id, num, done) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('done', done);
+  el.textContent = done ? '✓' : String(num);
+}
+
+function updateStepBadges() {
+  setStepBadge('step-num-scene', 1, !!selSceneId);
+  setStepBadge('step-num-task', 2, !!selTaskId);
+  setStepBadge('step-num-tool', 3, !!selToolId);
+}
+
 function updateRecStatus() {
+  updateStepBadges();
   const s = document.getElementById('rec-status');
   if (!ble.isConnected()) { s.textContent = t('rec_need_device'); s.className = 'rec-status'; return; }
   if (!selSceneId) { s.textContent = t('rec_need_scene'); s.className = 'rec-status'; return; }
@@ -332,18 +354,21 @@ async function persistCSV() {
   // too, now that scene/task/tool labels can be in Japanese as well as Chinese/English.
   const safe = (s) => s.replace(/[^a-zA-Z0-9一-鿿ぁ-んァ-ヶー]/g, '_');
   const note = document.getElementById('note').value;
+  const subjectId = document.getElementById('subject-id').value.trim();
   const sceneLabel = selSceneId ? tScene(selSceneId) : '';
   const taskLabel = selTaskId ? tTask(selTaskId) : '';
   const toolLabel = selToolId ? tTool(selToolId) : '';
   const fields = customFields.filter((f) => f.name.trim());
-  const fname = `emg_${ts}_${safe(taskLabel)}_${safe(toolLabel)}.csv`;
+  // Lead with the subject id so a batch of files from an institutional collection session
+  // (many subjects, each doing several tasks) sorts and groups by subject at a glance.
+  const fname = `emg_${ts}_${[safe(subjectId), safe(taskLabel), safe(toolLabel)].filter(Boolean).join('_')}.csv`;
 
-  const header = ['timestamp', 'time_str', 'scene', 'task', 'tool', 'note', ...fields.map((f) => f.name.trim()), ...Array.from({ length: CH }, (_, i) => 'ch' + i)]
+  const header = ['timestamp', 'time_str', 'subject', 'scene', 'task', 'tool', 'note', ...fields.map((f) => f.name.trim()), ...Array.from({ length: CH }, (_, i) => 'ch' + i)]
     .map(csvField).join(',') + '\n';
   const rows = recRows.map((r) => {
     const d = new Date(r.ts);
     const tstr = d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
-    return [r.ts / 1000, tstr, sceneLabel, taskLabel, toolLabel, note || '', ...fields.map((f) => f.value), ...r.row].map(csvField).join(',');
+    return [r.ts / 1000, tstr, subjectId, sceneLabel, taskLabel, toolLabel, note || '', ...fields.map((f) => f.value), ...r.row].map(csvField).join(',');
   }).join('\n');
   const csvText = header + rows;
 
@@ -351,7 +376,7 @@ async function persistCSV() {
     id: 'rec_' + now.getTime(),
     filename: fname,
     createdAt: now.getTime(),
-    scene: sceneLabel, task: taskLabel, tool: toolLabel, note,
+    subject: subjectId, scene: sceneLabel, task: taskLabel, tool: toolLabel, note,
     sampleCount: recRows.length,
     sizeKB: Math.round((csvText.length / 1024) * 10) / 10,
     csvText,
@@ -391,10 +416,37 @@ async function exportCSV(fname, csvText) {
 
 window.renderFiles = renderFiles;
 
+function formatDuration(totalSeconds) {
+  if (totalSeconds < 60) return totalSeconds.toFixed(1) + 's';
+  const m = Math.floor(totalSeconds / 60), s = Math.round(totalSeconds % 60);
+  return m + 'm' + String(s).padStart(2, '0') + 's';
+}
+
+function formatSize(totalKB) {
+  if (totalKB < 1024) return totalKB.toFixed(1) + 'KB';
+  return (totalKB / 1024).toFixed(2) + 'MB';
+}
+
+// Aggregate stat tiles for the Files page — a quick "how much have we collected so far"
+// summary, more persuasive in an institutional sales/demo context than a bare file list.
+function renderStats(files) {
+  const row = document.getElementById('stats-row');
+  if (!files.length) { row.style.display = 'none'; return; }
+  row.style.display = '';
+  const subjects = new Set(files.map((f) => (f.subject || '').trim()).filter(Boolean));
+  const totalSamples = files.reduce((sum, f) => sum + (f.sampleCount || 0), 0);
+  const totalSizeKB = files.reduce((sum, f) => sum + (f.sizeKB || 0), 0);
+  document.getElementById('stat-sessions').textContent = files.length;
+  document.getElementById('stat-subjects').textContent = subjects.size || '—';
+  document.getElementById('stat-duration').textContent = formatDuration(totalSamples / 500);
+  document.getElementById('stat-size').textContent = formatSize(totalSizeKB);
+}
+
 async function renderFiles() {
   const el = document.getElementById('files-list');
   let files = [];
   try { files = await listRecordings(); } catch (e) { console.error(e); }
+  renderStats(files);
   if (!files.length) {
     el.innerHTML = '';
     const empty = document.createElement('div');
@@ -492,6 +544,51 @@ function updateChCards(lastRow) {
   }
 }
 
+// Cheap per-channel contact-quality heuristic reused from waveBuf (already updated on every
+// incoming EMG batch regardless of which tab is active): a channel pinned near the 0/255 rails
+// usually means poor electrode contact (see the rail-clipping check used for CSV data-quality
+// review earlier in this project); a channel with near-zero variance means no real signal has
+// arrived yet at all. Surfacing this on the Connect page — not just the Wave page — lets an
+// operator confirm the band is seated well before ever navigating away to record.
+function computeChannelQuality() {
+  const states = [];
+  for (let c = 0; c < CH; c++) {
+    const recent = waveBuf[c].slice(-40);
+    const min = Math.min(...recent), max = Math.max(...recent);
+    const nearRailCount = recent.filter((v) => v <= 3 || v >= 252).length;
+    if (nearRailCount / recent.length > 0.5) states.push('bad');
+    else if (max - min < 3) states.push('flat');
+    else states.push('good');
+  }
+  return states;
+}
+
+function renderSignalQuality() {
+  const panel = document.getElementById('signal-quality');
+  if (!ble.isConnected()) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const states = computeChannelQuality();
+  const dotsWrap = document.getElementById('sig-dots');
+  dotsWrap.innerHTML = '';
+  states.forEach((s) => {
+    const dot = document.createElement('div');
+    dot.className = 'sig-dot sig-' + s;
+    dotsWrap.appendChild(dot);
+  });
+  const goodCount = states.filter((s) => s === 'good').length;
+  const summary = document.getElementById('sig-summary');
+  if (goodCount === CH) {
+    summary.textContent = t('sig_all_good', { n: CH });
+    summary.className = 'sig-summary good';
+  } else if (goodCount === 0) {
+    summary.textContent = t('sig_none_good');
+    summary.className = 'sig-summary bad';
+  } else {
+    summary.textContent = t('sig_partial', { good: goodCount, total: CH });
+    summary.className = 'sig-summary warn';
+  }
+}
+
 function resizeCanvas() {
   canvas.width = canvas.offsetWidth * window.devicePixelRatio;
   canvas.height = canvas.offsetHeight * window.devicePixelRatio;
@@ -560,8 +657,11 @@ function applyStaticI18n() {
   document.getElementById('notice-title').textContent = t('notice_title');
   document.getElementById('notice-body').innerHTML = t('notice_body');
   document.getElementById('device-label').textContent = t('device_label');
+  document.getElementById('signal-quality-title').textContent = t('signal_quality_title');
   document.getElementById('debug-log-title').textContent = t('debug_log_title');
   document.getElementById('debug-log-hint').textContent = t('debug_log_hint');
+  document.getElementById('section-subject').textContent = t('section_subject');
+  document.getElementById('subject-id').placeholder = t('subject_placeholder');
   document.getElementById('section-scene').textContent = t('section_scene');
   document.getElementById('section-task').textContent = t('section_task');
   document.getElementById('section-tool').textContent = t('section_tool');
@@ -572,6 +672,10 @@ function applyStaticI18n() {
   document.getElementById('gesture-label').textContent = t('gesture_label');
   document.getElementById('interleave-label').textContent = t('interleave_label');
   applyInterleaveOptions();
+  document.getElementById('stat-sessions-label').textContent = t('stat_sessions');
+  document.getElementById('stat-subjects-label').textContent = t('stat_subjects');
+  document.getElementById('stat-duration-label').textContent = t('stat_duration');
+  document.getElementById('stat-size-label').textContent = t('stat_size');
   document.getElementById('files-title').textContent = t('files_title');
   document.getElementById('btn-refresh').textContent = t('btn_refresh');
   document.getElementById('nav-connect').textContent = t('nav_connect');
@@ -621,3 +725,4 @@ updateRecStatus();
 updateConnUI();
 initInterleaveToggle();
 registerServiceWorker();
+setInterval(renderSignalQuality, 400);

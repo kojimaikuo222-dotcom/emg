@@ -74,6 +74,13 @@ const UI = {
   status_ready: { zh: '已连接，EMG 已启用，可开始录制', ja: '接続済み、EMG有効、記録開始できます', en: 'Connected, EMG enabled, ready to record' },
   status_disconnected: { zh: '设备已断开', ja: 'デバイス切断済み', en: 'Device disconnected' },
 
+  signal_quality_title: { zh: '信号质量', ja: '信号品質', en: 'Signal Quality' },
+  sig_all_good: { zh: '{n} 个通道信号正常', ja: '全 {n} チャンネル良好', en: 'All {n} channels look good' },
+  sig_partial: { zh: '{good}/{total} 个通道信号正常，请检查贴合', ja: '{good}/{total} チャンネル良好、装着を確認してください', en: '{good}/{total} channels look good — check electrode contact' },
+  sig_none_good: { zh: '未检测到有效信号，请检查佩戴', ja: '有効な信号がありません、装着を確認してください', en: 'No valid signal detected — check that the band is worn correctly' },
+
+  section_subject: { zh: '受试者编号（可选）', ja: '被験者ID（任意）', en: 'Subject ID (optional)' },
+  subject_placeholder: { zh: '如：S001、张三…', ja: '例：S001、田中…', en: 'e.g. S001, Alice…' },
   section_scene: { zh: '场景', ja: 'シーン', en: 'Scene' },
   section_task: { zh: '工序', ja: '工程', en: 'Task' },
   section_tool: { zh: '工具', ja: '道具', en: 'Tool' },
@@ -105,6 +112,11 @@ const UI = {
   interleave_label: { zh: '采样交织方式', ja: 'サンプル配列方式', en: 'Sample Interleaving' },
   interleave_sample: { zh: '按采样点交织（默认）', ja: 'サンプル単位で交互配置（デフォルト）', en: 'Interleaved by sample (default)' },
   interleave_channel: { zh: '按通道分块', ja: 'チャンネルごとにブロック化', en: 'Grouped by channel' },
+
+  stat_sessions: { zh: '总记录', ja: '総記録数', en: 'Sessions' },
+  stat_subjects: { zh: '受试者', ja: '被験者数', en: 'Subjects' },
+  stat_duration: { zh: '总时长', ja: '総時間', en: 'Duration' },
+  stat_size: { zh: '总大小', ja: '総容量', en: 'Total Size' },
 
   files_title: { zh: '已保存 CSV', ja: '保存済み CSV', en: 'Saved CSV' },
   btn_refresh: { zh: '刷新', ja: '更新', en: 'Refresh' },
