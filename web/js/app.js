@@ -23,7 +23,7 @@ const SCENES = {
 };
 
 const CH = 8, WAVE_LEN = 200;
-const CH_HEX = ['#00e5a0', '#4dabf7', '#c084fc', '#fbbf24', '#fb7185', '#34d399', '#f0abfc', '#7dd3fc'];
+const CH_HEX = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#2fae2f', '#9085e9', '#e66767'];
 const CH_COLORS = ['--ch0', '--ch1', '--ch2', '--ch3', '--ch4', '--ch5', '--ch6', '--ch7'];
 
 let selScene = null, selTask = null, selTool = null;
@@ -299,10 +299,10 @@ const ctx = canvas.getContext('2d');
 function buildChCards() {
   const grid = document.getElementById('ch-grid');
   grid.innerHTML = Array.from({ length: CH }, (_, i) => `
-    <div class="ch-card">
+    <div class="ch-card" style="border-left-color:var(${CH_COLORS[i]})">
       <div class="ch-color" style="background:var(${CH_COLORS[i]})"></div>
       <div class="ch-label">CH${i}</div>
-      <div class="ch-val" id="cv${i}" style="color:var(${CH_COLORS[i]})">—</div>
+      <div class="ch-val" id="cv${i}">—</div>
     </div>`).join('');
 }
 
